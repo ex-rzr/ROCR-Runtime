@@ -176,7 +176,9 @@ void Runtime::RegisterAgent(Agent* agent) {
       system_allocator_ = [this](size_t size, size_t align, MemoryRegion::AllocateFlags alloc_flags) -> void* {
         assert(align <= 4096);
         void* ptr = nullptr;
-        core::Runtime::runtime_singleton_->AllocateMemory(system_regions_fine_[0], size, alloc_flags, &ptr);
+        std::string var = os::GetEnvVar("EXP_CPU_FOR_SYSTEM_ALLOC");
+        size_t cpu_index = var.empty() ? 0 : std::min(system_regions_fine_.size() - 1, size_t(atoi(var.c_str())));
+        core::Runtime::runtime_singleton_->AllocateMemory(system_regions_fine_[cpu_index], size, alloc_flags, &ptr);
         return ptr;
       };
 
@@ -415,8 +417,10 @@ hsa_status_t Runtime::CopyMemory(void* dst, const void* src, size_t size) {
 
   // GPU-CPU
   // Must ensure that system memory is visible to the GPU during the copy.
+  std::string var = os::GetEnvVar("EXP_CPU_FOR_SYSTEM_ALLOC");
+  size_t cpu_index = var.empty() ? 0 : std::min(system_regions_fine_.size() - 1, size_t(atoi(var.c_str())));
   const AMD::MemoryRegion* system_region =
-      static_cast<const AMD::MemoryRegion*>(system_regions_fine_[0]);
+      static_cast<const AMD::MemoryRegion*>(system_regions_fine_[cpu_index]);
 
   void* gpuPtr = nullptr;
   const auto& locked_copy = [&](void*& ptr, core::Agent* locking_agent) {
@@ -439,7 +443,7 @@ hsa_status_t Runtime::CopyMemory(void* dst, const void* src, size_t size) {
 
   /*
   GPU-GPU - functional support, not a performance path.
-  
+
   This goes through system memory because we have to support copying between non-peer GPUs
   and we can't use P2P pointers even if the GPUs are peers.  Because hsa_amd_agents_allow_access
   requires the caller to specify all allowed agents we can't assume that a peer mapped pointer
