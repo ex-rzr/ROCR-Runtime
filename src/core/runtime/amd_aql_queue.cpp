@@ -637,9 +637,17 @@ void AqlQueue::AllocRegisteredRingBuffer(uint32_t queue_size_pkts) {
     ring_buf_alloc_bytes_ = AlignUp(
         queue_size_pkts * sizeof(core::AqlPacket), 4096);
 
-    ring_buf_ = core::Runtime::runtime_singleton_->system_allocator()(
-        ring_buf_alloc_bytes_, 0x1000, core::MemoryRegion::AllocateExecutable |
-            (queue_full_workaround_ ? core::MemoryRegion::AllocateDoubleMap : 0));
+    // ring_buf_ = core::Runtime::runtime_singleton_->system_allocator()(
+    //     ring_buf_alloc_bytes_, 0x1000, core::MemoryRegion::AllocateExecutable |
+    //         (queue_full_workaround_ ? core::MemoryRegion::AllocateDoubleMap : 0));
+
+    // core::Runtime::runtime_singleton_->AllocateMemory(
+    //   core::Runtime::runtime_singleton_->system_regions_coarse()[0],
+    //   ring_buf_alloc_bytes_, core::MemoryRegion::AllocateExecutable, &ring_buf_);
+
+    core::Runtime::runtime_singleton_->AllocateMemory(
+      agent_->regions()[0],
+      ring_buf_alloc_bytes_, core::MemoryRegion::AllocateExecutable, &ring_buf_);
 
     assert(ring_buf_ != NULL && "AQL queue memory allocation failure");
 
@@ -660,7 +668,7 @@ void AqlQueue::FreeRegisteredRingBuffer() {
         (void*)(uintptr_t(ring_buf_) + (ring_buf_alloc_bytes_ / 2)));
 #endif
   } else {
-    core::Runtime::runtime_singleton_->system_deallocator()(ring_buf_);
+    // core::Runtime::runtime_singleton_->system_deallocator()(ring_buf_);
   }
 
   ring_buf_ = NULL;
